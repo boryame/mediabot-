@@ -924,6 +924,45 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     lang = get_user_lang(uid)
 
+    # ── KOD ORQALI QIDIRISH (#10 yoki /10) ──────────────
+    if text.startswith("#") or (text.startswith("/") and text[1:].isdigit()):
+        code = text.replace("#", "").replace("/", "").strip()
+        if code.isdigit():
+            movie = get_movie(int(code))
+            if movie:
+                if movie["is_vip"] and not is_vip(uid):
+                    await update.message.reply_text(
+                        t(lang, "vip_only"),
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton(t(lang, "vip_buy"), callback_data="vip")],
+                        ])
+                    )
+                    return
+                add_view(uid, movie["id"])
+                text_msg = movie_text(movie, lang)
+                if movie["poster_id"]:
+                    try:
+                        await update.message.reply_photo(
+                            photo=movie["poster_id"],
+                            caption=text_msg,
+                            reply_markup=movie_kb(movie, lang),
+                            parse_mode="Markdown"
+                        )
+                        return
+                    except:
+                        pass
+                await update.message.reply_text(
+                    text_msg,
+                    reply_markup=movie_kb(movie, lang),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_text(
+                    f"❌ #{code} kodli kino topilmadi!",
+                    reply_markup=back_menu_kb(lang)
+                )
+        return
+
     # ── PASTKI TUGMA ──────────────────────────────────
     if text == "🏠 Bosh menyu":
         user_states.pop(uid, None)
@@ -1240,7 +1279,9 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_states[uid] = state
 
         await update.message.reply_text(
-            f"✅ {ep_num}-qism qo'shildi! (*{movie['title']}*)\n\nYana qism qo'shish yoki tugallash:",
+            f"✅ {ep_num}-qism qo'shildi! (*{movie['title']}*)\n"
+            f"🔑 Kino kodi: `#{movie_id}`\n\n"
+            f"Foydalanuvchilar #{movie_id} yozib topadi!\n\nYana qism qo'shish yoki tugallash:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("➕ Yana qism",   callback_data=f"adm_ep_season_{movie_id}_{season_id or 0}")
                  if season_id else
