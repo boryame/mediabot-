@@ -1193,9 +1193,9 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_id = (update.message.video or update.message.document).file_id
 
         # Agar kino hali DB ga qo'shilmagan bo'lsa
-        if state.get("pending_data") and not state.get("movie_id"):
-            state["pending_data"]["added_by"] = uid
-            state["movie_id"] = add_movie(state["pending_data"])
+        if state.get("data") and not state.get("movie_id"):
+            state["data"]["added_by"] = uid
+            state["movie_id"] = add_movie(state["data"])
 
         movie_id  = state["movie_id"]
         season_id = state.get("season_id")
