@@ -937,9 +937,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         )] for s in seasons]
                         kb.append([InlineKeyboardButton("🔙 Orqaga", callback_data="menu")])
                         await update.message.reply_text(
-                            f"📂 *{movie['title']}*
-
-Faslni tanlang:",
+                            f"📂 *{movie['title']}*\n\nFaslni tanlang:",
                             reply_markup=InlineKeyboardMarkup(kb),
                             parse_mode="Markdown"
                         )
@@ -960,9 +958,7 @@ Faslni tanlang:",
                                 kb.append(row)
                             kb.append([InlineKeyboardButton("🔙 Orqaga", callback_data="menu")])
                             await update.message.reply_text(
-                                f"📺 *{movie['title']}*
-
-Qismni tanlang ({len(eps)} ta):",
+                                f"📺 *{movie['title']}*\n\nQismni tanlang ({len(eps)} ta):",
                                 reply_markup=InlineKeyboardMarkup(kb),
                                 parse_mode="Markdown"
                             )
@@ -977,8 +973,7 @@ Qismni tanlang ({len(eps)} ta):",
                             await context.bot.send_video(
                                 chat_id=uid,
                                 video=eps[0]["file_id"],
-                                caption=f"🎬 *{movie['title']}*
-📅 {movie['year'] or ''} | ⭐ {movie['rating'] or ''}",
+                                caption=f"🎬 *{movie['title']}*📅 {movie['year'] or ''} | ⭐ {movie['rating'] or ''}",
                                 protect_content=protect,
                                 parse_mode="Markdown"
                             )
