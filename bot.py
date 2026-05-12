@@ -47,12 +47,6 @@ def main_menu_kb(lang, adm=False):
     kb = [
         [InlineKeyboardButton(t(lang, "movies"),   callback_data="cat_movie"),
          InlineKeyboardButton(t(lang, "serials"),  callback_data="cat_serial")],
-        [InlineKeyboardButton(t(lang, "anime"),    callback_data="cat_anime"),
-         InlineKeyboardButton(t(lang, "cartoons"), callback_data="cat_cartoon")],
-        [InlineKeyboardButton(t(lang, "drama"),    callback_data="cat_drama"),
-         InlineKeyboardButton(t(lang, "random"),   callback_data="random")],
-        [InlineKeyboardButton(t(lang, "search"),   callback_data="search"),
-         InlineKeyboardButton(t(lang, "vip"),      callback_data="vip")],
         [InlineKeyboardButton(t(lang, "contact_admin"), callback_data="contact_admin"),
          InlineKeyboardButton(t(lang, "lang_btn"),      callback_data="lang")],
     ]
@@ -930,32 +924,68 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if code.isdigit():
             movie = get_movie(int(code))
             if movie:
-                if movie["is_vip"] and not is_vip(uid):
-                    await update.message.reply_text(
-                        t(lang, "vip_only"),
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton(t(lang, "vip_buy"), callback_data="vip")],
-                        ])
-                    )
-                    return
+                protect = get_setting("forward_enabled") == "0"
                 add_view(uid, movie["id"])
-                text_msg = movie_text(movie, lang)
-                if movie["poster_id"]:
-                    try:
-                        await update.message.reply_photo(
-                            photo=movie["poster_id"],
-                            caption=text_msg,
-                            reply_markup=movie_kb(movie, lang),
+
+                # Serial/anime/drama — qismlar ro'yxati
+                if movie["category"] in ("serial", "anime", "drama"):
+                    seasons = get_seasons(movie["id"])
+                    if seasons:
+                        kb = [[InlineKeyboardButton(
+                            f"📂 {s['season_num']}-Fasl",
+                            callback_data=f"season_{movie['id']}_{s['id']}"
+                        )] for s in seasons]
+                        kb.append([InlineKeyboardButton("🔙 Orqaga", callback_data="menu")])
+                        await update.message.reply_text(
+                            f"📂 *{movie['title']}*
+
+Faslni tanlang:",
+                            reply_markup=InlineKeyboardMarkup(kb),
                             parse_mode="Markdown"
                         )
-                        return
-                    except:
-                        pass
-                await update.message.reply_text(
-                    text_msg,
-                    reply_markup=movie_kb(movie, lang),
-                    parse_mode="Markdown"
-                )
+                    else:
+                        eps = get_episodes(movie["id"])
+                        if eps:
+                            kb = []
+                            row = []
+                            for ep in eps:
+                                row.append(InlineKeyboardButton(
+                                    f"📺 {ep['episode_num']}",
+                                    callback_data=f"ep_{ep['id']}"
+                                ))
+                                if len(row) == 4:
+                                    kb.append(row)
+                                    row = []
+                            if row:
+                                kb.append(row)
+                            kb.append([InlineKeyboardButton("🔙 Orqaga", callback_data="menu")])
+                            await update.message.reply_text(
+                                f"📺 *{movie['title']}*
+
+Qismni tanlang ({len(eps)} ta):",
+                                reply_markup=InlineKeyboardMarkup(kb),
+                                parse_mode="Markdown"
+                            )
+                        else:
+                            await update.message.reply_text("❌ Qismlar topilmadi!")
+
+                # Kino — to'g'ridan video yuborish
+                else:
+                    eps = get_episodes(movie["id"])
+                    if eps:
+                        try:
+                            await context.bot.send_video(
+                                chat_id=uid,
+                                video=eps[0]["file_id"],
+                                caption=f"🎬 *{movie['title']}*
+📅 {movie['year'] or ''} | ⭐ {movie['rating'] or ''}",
+                                protect_content=protect,
+                                parse_mode="Markdown"
+                            )
+                        except Exception as e:
+                            await update.message.reply_text(f"❌ Xatolik: {e}")
+                    else:
+                        await update.message.reply_text("❌ Video topilmadi!")
             else:
                 await update.message.reply_text(
                     f"❌ #{code} kodli kino topilmadi!",
@@ -1065,20 +1095,23 @@ async def handle_admin_text(update, context, uid, text, lang):
 
     elif step == "movie_genre":
         state["data"]["genre"] = None if text == "—" else text
-        state["step"] = "movie_desc"
-        admin_states[uid] = state
-        await update.message.reply_text("📖 Tavsif yozing yoki — :")
-
-    elif step == "movie_desc":
-        state["data"]["description"] = None if text == "—" else text
-        state["step"] = "movie_vip"
+        state["data"]["description"] = None
+        state["data"]["is_vip"] = 0
+        state["step"] = "movie_poster"
         admin_states[uid] = state
         await update.message.reply_text(
-            "💎 VIP kino bo'ladimi?",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("✅ Ha, VIP", callback_data="movie_vip_yes"),
-                InlineKeyboardButton("❌ Yo'q",    callback_data="movie_vip_no"),
-            ]])
+            "🖼 Poster rasmini yuboring yoki o'tkazib yuboring:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⏭ O'tkazish", callback_data="movie_skip_poster")]])
+        )
+
+    elif step == "movie_desc":
+        state["data"]["description"] = None
+        state["data"]["is_vip"] = 0
+        state["step"] = "movie_poster"
+        admin_states[uid] = state
+        await update.message.reply_text(
+            "🖼 Poster rasmini yuboring yoki o'tkazib yuboring:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⏭ O'tkazish", callback_data="movie_skip_poster")]])
         )
 
     elif step == "movie_poster":
