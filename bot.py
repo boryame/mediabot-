@@ -1,6 +1,6 @@
 import logging
 from telegram import (Update, InlineKeyboardButton, InlineKeyboardMarkup,
-                       LabeledPrice, ChatJoinRequest)
+                       LabeledPrice, ChatJoinRequest, ReplyKeyboardMarkup, KeyboardButton)
 from telegram.ext import (ApplicationBuilder, CommandHandler, MessageHandler,
                            CallbackQueryHandler, PreCheckoutQueryHandler,
                            ChatJoinRequestHandler, InlineQueryHandler,
@@ -33,6 +33,15 @@ CATEGORIES = {
 # ═══════════════════════════════════════════════════════
 # KLAVIATURALAR
 # ═══════════════════════════════════════════════════════
+
+def bottom_kb():
+    """Har doim pastda ko'rinadigan tugma"""
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("🏠 Bosh menyu")]],
+        resize_keyboard=True,
+        persistent=True
+    )
+
 
 def main_menu_kb(lang, adm=False):
     kb = [
@@ -154,6 +163,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not_subbed:
         await show_sub_required(update, context, not_subbed, lang)
         return
+
+    # Pastki tugmani ko'rsat
+    await update.message.reply_text("👇", reply_markup=bottom_kb())
 
     await update.message.reply_text(
         t(lang, "start_msg"),
@@ -911,6 +923,27 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid  = update.effective_user.id
     text = update.message.text.strip()
     lang = get_user_lang(uid)
+
+    # ── PASTKI TUGMA ──────────────────────────────────
+    if text == "🏠 Bosh menyu":
+        user_states.pop(uid, None)
+        not_subbed = await check_subscription(uid, context)
+        if not_subbed:
+            await update.message.reply_text(
+                t(lang, "sub_required"),
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(f"📢 {ch['channel_name']}", url=ch["channel_url"])]
+                     for ch in not_subbed] +
+                    [[InlineKeyboardButton(t(lang, "sub_check"), callback_data="check_sub")]]
+                )
+            )
+            return
+        await update.message.reply_text(
+            t(lang, "start_msg"),
+            reply_markup=main_menu_kb(lang, is_admin(uid)),
+            parse_mode="Markdown"
+        )
+        return
 
     # ── ADMIN HOLATLARI ───────────────────────────────
     if is_admin(uid) and uid in admin_states:
