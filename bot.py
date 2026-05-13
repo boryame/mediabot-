@@ -614,7 +614,8 @@ async def admin_callback(query, context, uid, d, lang):
     elif d == "movie_skip_poster":
         state = admin_states.get(uid, {})
         state["data"]["poster_id"] = None
-        state["data"]["added_by"] = uid
+        state["data"]["added_by"]  = uid
+        state["data"]["category"]  = state.get("category", "movie")
         category = state.get("category")
         if category in ("serial", "anime", "drama"):
             movie_id = add_movie(state["data"])
@@ -1268,6 +1269,7 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if step == "movie_poster" and update.message.photo:
         state["data"]["poster_id"] = update.message.photo[-1].file_id
         state["data"]["added_by"]  = uid
+        state["data"]["category"]  = state.get("category", "movie")
         category = state.get("category")
         if category in ("serial", "anime", "drama"):
             movie_id = add_movie(state["data"])
@@ -1295,6 +1297,7 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Agar kino hali DB ga qo'shilmagan bo'lsa
         if state.get("data") and not state.get("movie_id"):
             state["data"]["added_by"] = uid
+            state["data"]["category"] = state.get("category", "movie")
             state["movie_id"] = add_movie(state["data"])
 
         movie_id  = state["movie_id"]
