@@ -191,14 +191,26 @@ def remove_subscription(sub_id):
 
 def add_movie(data):
     conn = get_conn()
-    cur = conn.execute(
-        """INSERT INTO movies (title, category, year, country, genre, description, poster_id, is_vip, added_by)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
-        (data["title"], data["category"], data.get("year"), data.get("country"),
-         data.get("genre"), data.get("description"), data.get("poster_id"),
-         data.get("is_vip", 0), data.get("added_by"))
-    )
-    movie_id = cur.lastrowid
+    custom_id = data.get("custom_id")
+    if custom_id:
+        # Admin o'zi ID kiritgan
+        conn.execute(
+            """INSERT OR REPLACE INTO movies (id, title, category, year, country, genre, description, poster_id, is_vip, added_by)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (custom_id, data["title"], data["category"], data.get("year"), data.get("country"),
+             data.get("genre"), data.get("description"), data.get("poster_id"),
+             data.get("is_vip", 0), data.get("added_by"))
+        )
+        movie_id = custom_id
+    else:
+        cur = conn.execute(
+            """INSERT INTO movies (title, category, year, country, genre, description, poster_id, is_vip, added_by)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (data["title"], data["category"], data.get("year"), data.get("country"),
+             data.get("genre"), data.get("description"), data.get("poster_id"),
+             data.get("is_vip", 0), data.get("added_by"))
+        )
+        movie_id = cur.lastrowid
     conn.commit()
     conn.close()
     return movie_id
