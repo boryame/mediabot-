@@ -45,8 +45,7 @@ def bottom_kb():
 
 def main_menu_kb(lang, adm=False):
     kb = [
-        [InlineKeyboardButton(t(lang, "movies"),   callback_data="cat_movie"),
-         InlineKeyboardButton(t(lang, "serials"),  callback_data="cat_serial")],
+        [InlineKeyboardButton(t(lang, "movies"), callback_data="cat_movie")],
         [InlineKeyboardButton(t(lang, "contact_admin"), callback_data="contact_admin"),
          InlineKeyboardButton(t(lang, "lang_btn"),      callback_data="lang")],
     ]
@@ -884,12 +883,8 @@ def admin_menu_kb():
 
 def category_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Kino",    callback_data="cat_sel_movie"),
-         InlineKeyboardButton("📺 Serial",  callback_data="cat_sel_serial")],
-        [InlineKeyboardButton("🎌 Anime",   callback_data="cat_sel_anime"),
-         InlineKeyboardButton("🎠 Multfilm",callback_data="cat_sel_cartoon")],
-        [InlineKeyboardButton("🎭 Drama",   callback_data="cat_sel_drama")],
-        [InlineKeyboardButton("❌ Bekor",   callback_data="admin_panel")],
+        [InlineKeyboardButton("🎬 Kino", callback_data="cat_sel_movie")],
+        [InlineKeyboardButton("❌ Bekor", callback_data="admin_panel")],
     ])
 
 
@@ -1018,6 +1013,46 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── USER HOLATLARI ────────────────────────────────
     state = user_states.get(uid, "")
 
+    # ── KOD KUTISH ───────────────────────────────────
+    if state and state.startswith("waiting_code_"):
+        category = state.replace("waiting_code_", "")
+        user_states.pop(uid, None)
+        code = text.strip().replace("#", "")
+        if code.isdigit():
+            movie = get_movie(int(code))
+            if movie and movie["category"] == category:
+                protect = get_setting("forward_enabled") == "0"
+                add_view(uid, movie["id"])
+                eps = get_episodes(movie["id"])
+                if eps:
+                    try:
+                        await context.bot.send_video(
+                            chat_id=uid,
+                            video=eps[0]["file_id"],
+                            caption=f"🎬 *{movie['title']}*",
+                            protect_content=protect,
+                            parse_mode="Markdown"
+                        )
+                    except:
+                        await update.message.reply_text("❌ Video yuborishda xatolik!", reply_markup=back_menu_kb(lang))
+                else:
+                    await update.message.reply_text("❌ Video topilmadi!", reply_markup=back_menu_kb(lang))
+            else:
+                await update.message.reply_text(
+                    "❌ Bu kod topilmadi!\n\nQaytadan kiriting:",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Orqaga", callback_data="menu")
+                    ]])
+                )
+        else:
+            await update.message.reply_text(
+                "❌ Faqat raqam kiriting! (masalan: 5)",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Orqaga", callback_data="menu")
+                ]])
+            )
+        return
+
     if state == "contact_admin":
         user_states.pop(uid, None)
         row = get_user(uid)
@@ -1059,11 +1094,47 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Boshqa xabarlar
-    await update.message.reply_text(
-        "Menyu uchun /start bosing 😊",
-        reply_markup=back_menu_kb(lang)
-    )
+    # Nom bilan qidiruv
+    results = search_movies(text)
+    if results:
+        if len(results) == 1:
+            # Bitta natija — to'g'ridan video yuborish
+            movie = results[0]
+            protect = get_setting("forward_enabled") == "0"
+            add_view(uid, movie["id"])
+            eps = get_episodes(movie["id"])
+            if eps:
+                try:
+                    await context.bot.send_video(
+                        chat_id=uid,
+                        video=eps[0]["file_id"],
+                        caption=f"🎬 *{movie['title']}*\n📅 {movie['year'] or ''} | ⭐ {movie['rating'] or ''}",
+                        protect_content=protect,
+                        parse_mode="Markdown"
+                    )
+                except:
+                    await update.message.reply_text("❌ Video yuborishda xatolik!")
+            else:
+                await update.message.reply_text("❌ Video topilmadi!")
+        else:
+            # Ko'p natija — ro'yxat chiqarish
+            kb = []
+            for m in results[:10]:
+                kb.append([InlineKeyboardButton(
+                    f"🎬 {m['title']} ({m['year'] or '—'})",
+                    callback_data=f"movie_{m['id']}"
+                )])
+            kb.append([InlineKeyboardButton("🔙 Orqaga", callback_data="menu")])
+            await update.message.reply_text(
+                f"🔍 *{len(results)} ta natija topildi:*",
+                reply_markup=InlineKeyboardMarkup(kb),
+                parse_mode="Markdown"
+            )
+    else:
+        await update.message.reply_text(
+            "❌ Kino topilmadi!\n\nKino nomini to'liq yozing.",
+            reply_markup=back_menu_kb(lang)
+        )
 
 
 async def handle_admin_text(update, context, uid, text, lang):
