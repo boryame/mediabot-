@@ -1020,7 +1020,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         code = text.strip().replace("#", "")
         if code.isdigit():
             movie = get_movie(int(code))
-            if movie and movie["category"] == category:
+            if movie:
                 protect = get_setting("forward_enabled") == "0"
                 add_view(uid, movie["id"])
                 eps = get_episodes(movie["id"])
