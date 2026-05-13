@@ -1093,12 +1093,25 @@ async def handle_admin_text(update, context, uid, text, lang):
         state["data"]["genre"] = None if text == "—" else text
         state["data"]["description"] = None
         state["data"]["is_vip"] = 0
-        state["step"] = "movie_poster"
+        state["step"] = "movie_code"
         admin_states[uid] = state
         await update.message.reply_text(
-            "🖼 Poster rasmini yuboring yoki o'tkazib yuboring:",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⏭ O'tkazish", callback_data="movie_skip_poster")]])
+            "🔑 Kino kodi kiriting (masalan: 1, 2, 100):\n_(Foydalanuvchilar shu kod bilan topadi)_",
+            parse_mode="Markdown"
         )
+
+    elif step == "movie_code":
+        if text.isdigit():
+            state["data"]["custom_id"] = int(text)
+            state["step"] = "movie_poster"
+            admin_states[uid] = state
+            await update.message.reply_text(
+                f"✅ Kod: *#{text}*\n\n🖼 Poster rasmini yuboring yoki o'tkazib yuboring:",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⏭ O'tkazish", callback_data="movie_skip_poster")]]),
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text("❌ Faqat raqam kiriting! (masalan: 1, 2, 100)")
 
     elif step == "movie_desc":
         state["data"]["description"] = None
